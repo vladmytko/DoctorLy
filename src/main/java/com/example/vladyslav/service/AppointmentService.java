@@ -3,10 +3,9 @@ package com.example.vladyslav.service;
 import com.example.vladyslav.dto.AppointmentDTO;
 import com.example.vladyslav.exception.NotFoundException;
 import com.example.vladyslav.exception.OurException;
-import com.example.vladyslav.model.Appointment;
-import com.example.vladyslav.model.AvailabilityRule;
-import com.example.vladyslav.model.TimeOff;
+import com.example.vladyslav.model.*;
 import com.example.vladyslav.model.enums.AppointmentStatus;
+import com.example.vladyslav.model.enums.Role;
 import com.example.vladyslav.repository.*;
 import com.example.vladyslav.requests.RescheduleRequest;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +17,7 @@ import org.springframework.stereotype.Service;
 
 import java.time.*;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Service
@@ -163,6 +163,31 @@ public class AppointmentService {
         Page<Appointment> appointmentPage = appointmentRepository.findByDoctorIdAndStatusBetween(doctorId, status, from, to, pageable);
 
         return appointmentPage.map(this::toDto);
+    }
+
+    public AppointmentDTO attended(String appointmentId, User user){
+        Appointment appointment = appointmentRepository.findById(appointmentId).orElseThrow(()-> new NotFoundException("Appointment not found with id:"+ appointmentId));
+
+        if(appointment.getStatus() == AppointmentStatus.CANCELLED) {
+            throw new OurException("Cannot mark a cancelled appointment as attended");
+        }
+
+        if(appointment.getStart().isAfter(Instant.now())){
+            throw new OurException("Cannot mark a future appointment as attended");
+        }
+
+        if (user.getRole().equals(Role.DOCTOR)) {
+            Doctor doctor = doctorRepository.findByUserId(user.getId())
+                    .orElseThrow(() -> new NotFoundException("Doctor profile not found"));
+            if (!Objects.equals(doctor.getId(), appointment.getDoctorId())) {
+                throw new OurException("Doctor not authorized for this appointment");
+            }
+        }
+
+        appointment.setStatus(AppointmentStatus.ATTENDED);
+        appointmentRepository.save(appointment);
+
+        return toDto(appointment);
     }
 
     /* --------------------------------------- Validators --------------------------------------------------------------- */

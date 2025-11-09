@@ -3,7 +3,6 @@ package com.example.vladyslav.controller;
 import com.example.vladyslav.dto.InvitationDTO;
 import com.example.vladyslav.exception.NotFoundException;
 import com.example.vladyslav.model.Doctor;
-import com.example.vladyslav.model.Invitation;
 import com.example.vladyslav.model.User;
 import com.example.vladyslav.repository.DoctorRepository;
 import com.example.vladyslav.service.InvitationService;
@@ -29,13 +28,13 @@ public class InvitationController {
     private final UserService userService;
     private final DoctorRepository doctorRepository;
 
-    @PostMapping("/{clinicId}/invite-doctor/{doctorId}")
+    @PostMapping("/{clinicId}/invite-doctor/{email}")
     @PreAuthorize("hasAnyRole('CLINIC','ADMIN')")
     public ResponseEntity<InvitationDTO> inviteDoctor(
             @PathVariable String clinicId,
-            @PathVariable String doctorId ) {
+            @PathVariable String email ) {
 
-        return new ResponseEntity<InvitationDTO>(service.createClinicInvitation(clinicId, doctorId), HttpStatus.CREATED);
+        return new ResponseEntity<>(service.createClinicInvitation(clinicId, email), HttpStatus.CREATED);
     }
 
     @GetMapping("clinic-invitations/my")
@@ -49,7 +48,7 @@ public class InvitationController {
         return new ResponseEntity<>(service.getPendingInvitationsForDoctor(doctor.getId()), HttpStatus.FOUND);
     }
 
-    @PostMapping("/api/clinic-invitations/{invitationId}/accept")
+    @PostMapping("/{invitationId}/accept")
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<Void> acceptInvitation(@PathVariable String invitationId, Authentication auth) {
         User user = userService.getCurrentUser(auth);
@@ -60,7 +59,7 @@ public class InvitationController {
         return ResponseEntity.noContent().build();
     }
 
-    @PostMapping("/api/clinic-invitations/{invitationId}/decline")
+    @PostMapping("/{invitationId}/decline")
     @PreAuthorize("hasRole('DOCTOR')")
     public ResponseEntity<Void> declineInvitation(@PathVariable String invitationId, Authentication auth) {
         User user = userService.getCurrentUser(auth);

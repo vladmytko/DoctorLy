@@ -1,18 +1,27 @@
 package com.example.vladyslav.controller;
 
 import com.example.vladyslav.dto.AppointmentDTO;
+import com.example.vladyslav.exception.NotFoundException;
+import com.example.vladyslav.exception.OurException;
 import com.example.vladyslav.model.Appointment;
+import com.example.vladyslav.model.Doctor;
+import com.example.vladyslav.model.User;
 import com.example.vladyslav.model.enums.AppointmentStatus;
+import com.example.vladyslav.model.enums.Role;
+import com.example.vladyslav.repository.DoctorRepository;
 import com.example.vladyslav.requests.RescheduleRequest;
 import com.example.vladyslav.service.AppointmentService;
+import com.example.vladyslav.service.UserService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Instant;
+import java.util.Objects;
 import java.util.Optional;
 
 
@@ -22,6 +31,8 @@ import java.util.Optional;
 public class AppointmentController {
 
     private final AppointmentService appointmentService;
+    private final DoctorRepository doctorRepository;
+    private final UserService userService;
 
     @PreAuthorize("hasRole('ADMIN')")
     @GetMapping("/all")
@@ -104,6 +115,15 @@ public class AppointmentController {
                                                                                @RequestParam(defaultValue = "20") int size){
         return ResponseEntity.ok(appointmentService.findByDoctorIdAndStatusBetween(doctorId, appointmentStatus, from, to, page, size));
     }
+
+    @PostMapping("/attended/{appointmentId}")
+    @PreAuthorize("hasAnyRole('DOCTOR','ADMIN')")
+    public ResponseEntity<AppointmentDTO> attended(@PathVariable String appointmentId,
+                                                   Authentication auth){
+        User user = userService.getCurrentUser(auth);
+        return ResponseEntity.ok(appointmentService.attended(appointmentId, user));
+    }
+
 
 
 

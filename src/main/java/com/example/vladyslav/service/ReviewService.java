@@ -2,10 +2,10 @@ package com.example.vladyslav.service;
 
 import com.example.vladyslav.dto.ReviewDTO;
 import com.example.vladyslav.exception.NotFoundException;
-import com.example.vladyslav.model.Doctor;
-import com.example.vladyslav.model.Patient;
-import com.example.vladyslav.model.Review;
+import com.example.vladyslav.exception.OurException;
+import com.example.vladyslav.model.*;
 import com.example.vladyslav.model.enums.AppointmentStatus;
+import com.example.vladyslav.model.enums.Role;
 import com.example.vladyslav.repository.AppointmentRepository;
 import com.example.vladyslav.repository.DoctorRepository;
 import com.example.vladyslav.repository.PatientRepository;
@@ -20,6 +20,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
+import java.util.Objects;
 
 
 @Service
@@ -45,11 +46,13 @@ public class ReviewService {
         Patient patient = patientRepository.findById(request.getPatientId())
                 .orElseThrow(()-> new NotFoundException("Patient not found: " + request.getPatientId()));
 
-        // 4) Ensure the patient has at least one COMPLETED appointment with doctor (in the past)
-        boolean hadCompletedAppointment = appointmentRepository
-                .existsByDoctorIdAndPatientIdAndStatusAndEndBefore(request.getDoctorId(), request.getPatientId(), AppointmentStatus.ATTENDED, Instant.now());
+        // 4) Retrieve appointment
+        Appointment appointment = appointmentRepository.findById(request.getAppointmentId())
+                .orElseThrow(()-> new NotFoundException("Appointment not found: " + request.getAppointmentId()));
 
-        if(!hadCompletedAppointment) {
+        // 4) Ensure that this appointment is ATTENDED
+
+        if(!appointment.getStatus().equals(AppointmentStatus.ATTENDED)) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN,
                     "You can only review a doctor after completing an appointment.");
         }
@@ -61,17 +64,33 @@ public class ReviewService {
                             "You have already reviewed this doctor.");
                 });
 
-        // 6) Save review
+        // 6) Make sure patient is authorised for this review
+        if(!Objects.equals(patient.getId(), appointment.getPatientId())){
+            throw new OurException("Patient not authorized for this review action");
+        }
+
+        // 7) Validate doctor for this appointment
+        if(!Objects.equals(doctor.getId(), appointment.getDoctorId())){
+            throw new OurException("Doctor not authorized for review action");
+        }
+
+
+        // 8) Save review
         Review review = Review.builder()
                 .doctor(doctor)
                 .patient(patient)
+                .clinic(doctor.getClinic())
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .build();
 
         Review saved = reviewRepository.save(review);
 
-        // 7) Recalculate doctor's average rating
+        //9) Save review to doctor
+        doctor.getReviews().add(review);
+        doctorRepository.save(doctor);
+
+        // 10) Recalculate doctor's average rating
         recalculateDoctorAverage(doctor);
 
         return toReviewDTO(saved);
@@ -89,9 +108,18 @@ public class ReviewService {
         return toReviewDTO(review);
     }
 
-    public void deleteReview(String reviewId){
+    public void deleteReview(String reviewId, User user){
         Review review = reviewRepository.findById(reviewId)
                 .orElseThrow(()-> new NotFoundException("Review not found: " + reviewId));
+
+        if(user.getRole().equals(Role.PATIENT)){
+            Patient patient = patientRepository.findById(user.getId())
+                    .orElseThrow(()-> new NotFoundException("Patient not found with id: " + user.getId()));
+            if(!Objects.equals(patient.getId(), review.getPatient().getId())){
+                throw new OurException("Patient not authorized for this review action");
+            }
+        }
+
 
         reviewRepository.deleteById(reviewId);
         // When a review is deleted, recalculate doctor average
@@ -118,7 +146,7 @@ public class ReviewService {
                 .rating(review.getRating())
                 .patientId(review.getPatient().getId())
                 .doctorId(review.getDoctor().getId())
-                .clinicId(review.getClinic().getId())
+                .clinicId(review.getClinic() != null ? review.getClinic().getId() : null)
                 .createdAt(review.getCreatedAt())
                 .build();
     }

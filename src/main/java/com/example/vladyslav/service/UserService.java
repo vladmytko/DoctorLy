@@ -42,10 +42,10 @@ public class UserService {
             throw new RuntimeException("User is not authenticated");
         }
 
-        String email = authentication.getName();
+        String id = authentication.getName();
 
-        return userRepository.findByEmail(email)
-                .orElseThrow(()-> new RuntimeException("User not found with email: " + email));
+        return userRepository.findById(id)
+                .orElseThrow(()-> new RuntimeException("User not found with id: " + id));
     }
 
     private UserDTO toDto(User user){
