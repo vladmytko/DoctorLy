@@ -25,7 +25,7 @@ public class ClinicDTO {
     private String phoneNumber;
     private String description;
     private String imageUrl;
-    private List<ReviewDTO> reviewDTOS = new ArrayList<>();
+    //private List<ReviewDTO> reviewDTOS = new ArrayList<>();
     private Float averageRating;
     private double latitude;
     private double longitude;

@@ -7,6 +7,9 @@ import lombok.*;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexType;
+import org.springframework.data.mongodb.core.index.GeoSpatialIndexed;
 import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.index.TextIndexed;
 import org.springframework.data.mongodb.core.mapping.DBRef;
@@ -42,6 +45,7 @@ public class Doctor {
     @Indexed(unique = true)
     private String email;
 
+    @Indexed
     @DBRef
     private Speciality speciality;
 
@@ -62,12 +66,9 @@ public class Doctor {
     @Builder.Default
     private List<LanguageCode> languages = new ArrayList<>();
 
-    @DBRef(lazy = true)
-    @Builder.Default
-    private List<Review> reviews = new ArrayList<>();
-
     private Float averageRating;
 
+    @Indexed
     @Min(0)
     @Builder.Default
     private int consultationFee = 0;
@@ -85,8 +86,12 @@ public class Doctor {
     @LastModifiedDate
     private Instant updatedAt;
 
+    @Indexed
     @DBRef
     private Clinic clinic; // optional - can be null if independent;
+
+    @GeoSpatialIndexed(type = GeoSpatialIndexType.GEO_2DSPHERE)
+    private GeoJsonPoint location; // longitude, latitude
 
 
     public String getFullName() {

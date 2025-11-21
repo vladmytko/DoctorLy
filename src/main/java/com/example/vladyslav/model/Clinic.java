@@ -42,8 +42,10 @@ public class Clinic {
     @TextIndexed
     private String address;
 
+    @Indexed
     private String city;
 
+    @Indexed
     private String postCode;
 
     private String phoneNumber;
@@ -53,9 +55,9 @@ public class Clinic {
     @TextIndexed
     private String description;
 
-    @DBRef(lazy = true)
-    @Builder.Default
-    private List<Review> reviews = new ArrayList<>();
+//    @DBRef(lazy = true)
+//    @Builder.Default
+//    private List<Review> reviews = new ArrayList<>();
 
     private Float averageRating;
 

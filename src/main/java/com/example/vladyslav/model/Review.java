@@ -31,8 +31,8 @@ public class Review {
     @DBRef
     private Doctor doctor; // nullable of it's for clinic
 
-    @DBRef
-    private Clinic clinic; // nullable if it's for doctor
+
+    // private Clinic clinic;  nullable if it's for doctor
 
     @CreatedDate
     private Instant createdAt;

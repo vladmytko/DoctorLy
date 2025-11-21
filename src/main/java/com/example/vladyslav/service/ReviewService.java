@@ -78,18 +78,14 @@ public class ReviewService {
         Review review = Review.builder()
                 .doctor(doctor)
                 .patient(patient)
-                .clinic(doctor.getClinic())
+                //.clinic(doctor.getClinic())
                 .rating(request.getRating())
                 .comment(request.getComment())
                 .build();
 
         Review saved = reviewRepository.save(review);
 
-        //9) Save review to doctor
-        doctor.getReviews().add(review);
-        doctorRepository.save(doctor);
-
-        // 10) Recalculate doctor's average rating
+        // 9) Recalculate doctor's average rating
         recalculateDoctorAverage(doctor);
 
         return toReviewDTO(saved);
@@ -136,6 +132,12 @@ public class ReviewService {
         doctorRepository.save(doctor);
     }
 
+    private Page<ReviewDTO> findByDoctorId(String doctorId, int size, int page){
+        Pageable pageable = PageRequest.of(page, size);
+        return reviewRepository.findByDoctorId(doctorId, pageable)
+                .map(this::toReviewDTO);
+    }
+
 
 
     public ReviewDTO toReviewDTO(Review review){
@@ -145,7 +147,7 @@ public class ReviewService {
                 .rating(review.getRating())
                 .patientId(review.getPatient().getId())
                 .doctorId(review.getDoctor().getId())
-                .clinicId(review.getClinic() != null ? review.getClinic().getId() : null)
+                //.clinicId(review.getClinic() != null ? review.getClinic().getId() : null)
                 .createdAt(review.getCreatedAt())
                 .build();
     }

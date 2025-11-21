@@ -17,6 +17,6 @@ public class ReviewDTO {
     private Float rating;
     private String patientId;
     private String doctorId;
-    private String clinicId;
+    //private String clinicId;
     private Instant createdAt;
 }

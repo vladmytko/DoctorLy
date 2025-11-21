@@ -27,7 +27,7 @@ public class DoctorDTO {
     private LocalDate dateOfBirth;
     private String bio;
     private Float averageRating;
-    private List<Review> reviews;
+    private List<ReviewDTO> latestReviews;
     private List<LanguageCode> languages;
     private Instant createdAt;
     private Instant updatedAt;

@@ -1,30 +1,41 @@
 package com.example.vladyslav.service;
 
 import com.example.vladyslav.awsS3.AwsS3Service;
-import com.example.vladyslav.dto.ClinicDTO;
 import com.example.vladyslav.dto.DoctorDTO;
+import com.example.vladyslav.dto.ReviewDTO;
 import com.example.vladyslav.exception.NotFoundException;
-import com.example.vladyslav.model.Clinic;
 import com.example.vladyslav.model.Doctor;
 import com.example.vladyslav.model.Speciality;
 import com.example.vladyslav.model.User;
+import com.example.vladyslav.model.enums.AppointmentType;
 import com.example.vladyslav.model.enums.LanguageCode;
 import com.example.vladyslav.model.enums.Role;
 import com.example.vladyslav.repository.DoctorRepository;
+import com.example.vladyslav.repository.ReviewRepository;
 import com.example.vladyslav.repository.SpecialityRepository;
 import com.example.vladyslav.repository.UserRepository;
 import com.example.vladyslav.requests.DoctorRegisterRequest;
+import com.example.vladyslav.search.DoctorSearchCriteria;
+import org.bson.types.ObjectId;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.mongodb.core.MongoTemplate;
+import org.springframework.data.mongodb.core.query.Criteria;
+import org.springframework.data.mongodb.core.query.Query;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+
+import java.awt.*;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
@@ -40,10 +51,16 @@ public class DoctorService {
     private SpecialityRepository specialityRepository;
 
     @Autowired
+    private ReviewRepository reviewRepository;
+
+    @Autowired
     private PasswordEncoder passwordEncoder;
 
     @Autowired
     private AwsS3Service awsS3Service;
+
+    @Autowired
+    private MongoTemplate mongoTemplate;
 
     public DoctorDTO createDoctor(DoctorRegisterRequest request) {
 
@@ -169,7 +186,183 @@ public class DoctorService {
     }
 
 
+    /**
+     *
+     * @param doctorId
+     * @param firstName
+     * @param lastName
+     * @param specialityId
+     * @param phoneNumber
+     * @param dateOfBirth
+     * @param bio
+     * @param languages
+     * @param consultationFee
+     * @param appointmentTypes
+     * @return
+     */
+    public DoctorDTO updateDoctor(String doctorId, String firstName, String lastName, String specialityId, String phoneNumber, LocalDate dateOfBirth, String bio, List<LanguageCode> languages, Integer consultationFee, List<AppointmentType> appointmentTypes){
+        Doctor doctor = doctorRepository.findById(doctorId)
+                .orElseThrow(()-> new NotFoundException("Doctor not found with ID: " + doctorId));
+
+        if(firstName != null && !firstName.isBlank()){
+            String formatted = firstName.trim();
+            formatted = formatted.substring(0, 1).toUpperCase() + formatted.substring(1).toLowerCase();
+            doctor.setFirstName(formatted);
+        }
+
+        if(lastName != null && !lastName.isBlank()){
+            String formatted = lastName.trim();
+            formatted = formatted.substring(0, 1).toUpperCase() + formatted.substring(1).toLowerCase();
+            doctor.setLastName(formatted);
+        }
+
+        if(specialityId != null && !specialityId.isBlank()){
+            Speciality speciality = specialityRepository.findById(specialityId)
+                    .orElseThrow(() -> new NotFoundException("Speciality not found with ID + " + specialityId));
+            doctor.setSpeciality(speciality);
+        }
+
+        if(phoneNumber != null && !phoneNumber.isBlank()){
+            String formatted = phoneNumber.trim();
+            doctor.setPhoneNumber(formatted);
+        }
+
+        if(dateOfBirth != null){
+            LocalDate today = LocalDate.now();
+            LocalDate adultDate = today.minusYears(18);
+
+            if(dateOfBirth.isAfter(adultDate)){
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Doctor must be at least 18 years old");
+            }
+            doctor.setDateOfBirth(dateOfBirth);
+        }
+
+        if(bio != null && !bio.isBlank()){
+            doctor.setBio(bio);
+        }
+
+        if(languages != null){
+            doctor.setLanguages(languages.stream().distinct().toList());
+        }
+
+
+        if(consultationFee != null){
+
+            if (consultationFee <= 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Consultation fee cannot be negative");
+            }
+            doctor.setConsultationFee(consultationFee);
+        }
+
+        if(appointmentTypes != null){
+            doctor.setAppointmentTypes(appointmentTypes.stream().distinct().toList());
+        }
+
+
+        doctorRepository.save(doctor);
+        return toDTO(doctor);
+    }
+
+
+    /**
+     *
+     * @param c
+     * @param pageable
+     * @return
+     */
+    public Page<DoctorDTO> search(DoctorSearchCriteria c, Pageable pageable) {
+        List<Criteria> criteria = new ArrayList<>();
+
+        if(c.getSpecialityId() != null) {
+            criteria.add(
+                    Criteria.where("speciality.$id").is(new ObjectId(c.getSpecialityId()))
+            );
+        }
+
+        if(c.getLanguage() != null && !c.getLanguage().isBlank()){
+            String langSrt = c.getLanguage().trim().toLowerCase();
+            LanguageCode lang;
+
+            try{
+                lang = LanguageCode.valueOf(langSrt);
+            } catch (IllegalArgumentException ex){
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Unknown language: " + c.getLanguage());
+            }
+            criteria.add(
+                    Criteria.where("languages").in(c.getLanguage())
+            );
+        }
+
+        if(c.getMinFee() != null || c.getMaxFee() != null){
+            Criteria feeCriteria = Criteria.where("consultationFee");
+            if(c.getMinFee() != null) feeCriteria = feeCriteria.gte(c.getMinFee());
+            if(c.getMaxFee() != null) feeCriteria = feeCriteria.lte(c.getMaxFee());
+            criteria.add(feeCriteria);
+        }
+
+        if(c.getClinicId() != null) {
+            criteria.add(
+                    Criteria.where("clinic.$id").is(new ObjectId(c.getClinicId()))
+            );
+        }
+
+//        if (c.getLat() != null && c.getLng() != null && c.getRadiusKm() != null) {
+//            Point point = new Point(c.getLng(), c.getLat());
+//            Distance distance = new Distance(c.getRadiusKm(), Metrics.KILOMETERS);
+//            criteria.add(
+//                    Criteria.where("location")
+//                            .nearSphere(point)
+//                            .maxDistance(distance.getNormalizedValue())
+//            );
+//        }
+
+        // simple text search by name/bio
+        if (c.getQ() != null && !c.getQ().isBlank()) {
+            String regex = ".*" + Pattern.quote(c.getQ()) + ".*";
+            Criteria text = new Criteria().orOperator(
+                    Criteria.where("firstName").regex(regex, "i"),
+                    Criteria.where("lastName").regex(regex, "i"),
+                    Criteria.where("bio").regex(regex, "i")
+            );
+            criteria.add(text);
+        }
+
+
+
+        Query query = new Query();
+
+        if(!criteria.isEmpty()) {
+            query.addCriteria(new Criteria().andOperator(criteria.toArray(new Criteria[0])));
+        }
+        query.with(pageable);
+
+        List<Doctor> content = mongoTemplate.find(query, Doctor.class);
+        List<DoctorDTO> dtoList = content.stream().map(this::toDTO).toList();
+
+        long total = mongoTemplate.count(Query.of(query).limit(-1).skip(-1), Doctor.class);
+
+        return new PageImpl<>(dtoList, pageable, total);
+
+    }
+
+
     private DoctorDTO toDTO(Doctor doctor){
+
+        List<ReviewDTO> latestReviews = reviewRepository
+                .findTop3ByDoctorIdOrderByCreatedAtDesc(doctor.getId())
+                .stream()
+                .map(r -> ReviewDTO.builder()
+                        .id(r.getId())
+                        .comment(r.getComment())
+                        .rating(r.getRating())
+                        .patientId(r.getPatient().getId())
+                        .doctorId(r.getDoctor().getId())
+                        //.clinicId(r.getClinic().getId())
+                        .createdAt(r.getCreatedAt())
+                        .build()
+                ).toList();
+
+
         return DoctorDTO.builder()
                 .id(doctor.getId())
                 .userId(doctor.getUser().getId())
@@ -180,7 +373,7 @@ public class DoctorService {
                 .phoneNumber(doctor.getPhoneNumber())
                 .dateOfBirth(doctor.getDateOfBirth())
                 .bio(doctor.getBio())
-                .reviews(doctor.getReviews())
+                .latestReviews(latestReviews)
                 .averageRating(doctor.getAverageRating())
                 .imageUrl(doctor.getImageUrl())
                 .createdAt(doctor.getCreatedAt())
@@ -189,6 +382,8 @@ public class DoctorService {
                 .languages(doctor.getLanguages())
                 .build();
     }
+
+
 
 
 

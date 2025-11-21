@@ -263,9 +263,9 @@ public class ClinicService {
                 .phoneNumber(clinic.getPhoneNumber())
                 .imageUrl(clinic.getImageUrl())
                 .description(clinic.getDescription())
-                .reviewDTOS(clinic.getReviews() == null ? null :
-                        clinic.getReviews().stream()
-                                .map(this::toReviewDTO).collect(Collectors.toList()))
+//                .reviewDTOS(clinic.getReviews() == null ? null :
+//                        clinic.getReviews().stream()
+//                                .map(this::toReviewDTO).collect(Collectors.toList()))
                 .averageRating(clinic.getAverageRating())
                 .createdAt(clinic.getCreatedAt())
                 .updatedAt(clinic.getUpdatedAt())
@@ -285,7 +285,7 @@ public class ClinicService {
                 .rating(review.getRating())
                 .patientId(review.getPatient().getId())
                 .doctorId(review.getDoctor().getId())
-                .clinicId(review.getClinic().getId())
+                //.clinicId(review.getClinic().getId())
                 .createdAt(review.getCreatedAt())
                 .build();
     }

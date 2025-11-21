@@ -16,7 +16,7 @@ public enum LanguageCode {
     es("Spanish"),
     it("Italian"),
     pl("Polish"),
-    ru("Russian"),
+    bl("Bulgarian"),
     ar("Arabic"),
     zh("Chinese"),
     hi("Hindi");

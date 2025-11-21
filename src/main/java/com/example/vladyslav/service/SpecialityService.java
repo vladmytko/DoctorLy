@@ -1,11 +1,8 @@
 package com.example.vladyslav.service;
 
-import com.example.vladyslav.dto.DoctorDTO;
-import com.example.vladyslav.exception.NotFoundException;
 import com.example.vladyslav.model.Speciality;
 import com.example.vladyslav.repository.SpecialityRepository;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
